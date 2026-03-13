@@ -1,4 +1,4 @@
-name: Build Android APK from ZIP
+name: Build Android APK
 on: [push]
 
 jobs:
@@ -7,12 +7,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Unzip the project
-        run: unzip -o metaai-hyper-browser-os.zip -d extracted_files
+      - name: Unzip any zip file
+        run: |
+          ZIP_FILE=$(find . -name "*.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then echo "No zip file found"; exit 1; fi
+          unzip -o "$ZIP_FILE" -d extracted_files
 
       - name: Find package.json and set up directory
         run: |
           TARGET_DIR=$(find extracted_files -name "package.json" -printf '%h\n' | head -n 1)
+          if [ -z "$TARGET_DIR" ]; then echo "package.json not found"; exit 1; fi
           echo "PROJECT_PATH=$TARGET_DIR" >> $GITHUB_ENV
 
       - name: set up JDK 17
@@ -35,13 +39,13 @@ jobs:
       - name: Build Web Assets
         run: |
           cd ${{ env.PROJECT_PATH }}
-          npm run build
+          npm run build --if-present
 
       - name: Capacitor Sync
         run: |
           cd ${{ env.PROJECT_PATH }}
-          npx cap init "MetaAI Browser" "com.metaai.browser" --web-dir dist --confirm
-          npx cap add android
+          npx cap init "MetaAI Browser" "com.metaai.browser" --web-dir dist --confirm || true
+          npx cap add android || true
           npx cap sync android
 
       - name: Build APK
